@@ -5,7 +5,6 @@ const path = require("path");
 const app = express();
 const port = process.env.PORT || 3000;
 
-// التأكد من وجود المفتاح في Vercel Settings
 const cohere = new CohereClient({
     token: process.env.COHERE_API_KEY, 
 });
@@ -15,41 +14,49 @@ app.use(express.static(__dirname));
 
 const systemPrompt = `أنت "المساعد الشرعي الذكي"، عالم مسلم وقور. 
 - أجب بلهجة مصرية مبسطة ووقورة.
-- لا تذكر أحاديث إلا إذا كنت متأكداً أنها في البخاري أو مسلم.
-- إذا قيل لك "أهلاً" أو "سلام"، رد بالترحيب والدعاء للسائل.
-- تخصصك الدين فقط، لا تفتِ في غير ذلك.`;
+- تذكر دائماً المعلومات التي أخبرك بها المستخدم (مثل اسمه) وناده بها بوقار.
+- لا تذكر أحاديث إلا إذا كنت متأكداً أنها في البخاري أو مسلم.`;
 
-// الصفحة الرئيسية
+// هنا السر: مصفوفة لحفظ المحادثة (للتبسيط في البروجيكت ده)
+// ملاحظة: في المشاريع الكبيرة بنستخدم Database، بس كدة هتشتغل معاك مؤقتاً
+let globalHistory = [];
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// معالجة الأسئلة مع حماية من التعليق
 app.post("/ask", async (req, res) => {
     try {
         const { question } = req.body;
 
-        if (!question) {
-            return res.status(400).json({ reply: "اتفضل اسأل يا بني، أنا سامعك." });
-        }
+        if (!question) return res.status(400).json({ reply: "اتفضل اسأل يا بني." });
 
+        // نبعت السؤال للـ AI مع تاريخ المحادثة اللي فات عشان يفتكر
         const response = await cohere.chat({
             message: question,
             model: "command-r-08-2024",
             preamble: systemPrompt,
-            // تحديد أقصى عدد كلمات للرد عشان السيرفر ميعلقش (Max Tokens)
-            maxTokens: 500 
+            chatHistory: globalHistory // هنا الذاكرة
         });
 
-        // الرد اللي هيرجع للمتصفح
-        res.json({ reply: response.text });
+        const reply = response.text;
+
+        // بنضيف السؤال والجواب للذاكرة عشان المرة الجاية يفتكرهم
+        globalHistory.push({ role: "USER", message: question });
+        globalHistory.push({ role: "CHATBOT", message: reply });
+
+        // لو الذاكرة كبرت أوي بنمسح القديم عشان السيرفر ميهنجش (آخر 10 رسايل مثلاً)
+        if (globalHistory.length > 20) {
+            globalHistory.shift();
+            globalHistory.shift();
+        }
+
+        res.json({ reply: reply });
 
     } catch (error) {
-        console.error("Error details:", error);
-        res.status(500).json({ reply: "عذراً يا بني، حدث تداخل في الأفكار (خطأ في السيرفر)." });
+        console.error(error);
+        res.status(500).json({ reply: "عذراً يا بني، حدث تداخل في الأفكار." });
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+app.listen(port, () => console.log(`Server running on port ${port}`));
