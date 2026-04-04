@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المساعد الشرعي الذكي</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --gold: #d4af37; --deep-green: #064e3b; }
+        #response-box p {
+    line-height: 1.5; /* ده بيعمل مسافة طولية كبيرة بين السطور */
+    margin-bottom: 15px; /* ده بيبعد كل فقرة عن اللي بعدها مسافة كويسة */
+    white-space: pre-line; /* ده بيخلي أي سطر جديد تكتبه يظهر فعلاً كسطر جديد */
+}
+        body {
+            margin: 0; font-family: 'Tajawal', sans-serif;
+            background: linear-gradient(-45deg, #022c22, #064e3b, #065f46, #022c22);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; color: white;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .chat-card {
+            width: 90%; max-width: 600px; padding: 40px;
+            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(25px);
+            border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 35px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+        }
+
+        h1 { font-family: 'Amiri', serif; color: var(--gold); font-size: 2.5rem; margin-bottom: 20px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        #response-box {
+            height: 250px; overflow-y: auto; background: rgba(0,0,0,0.25);
+            border-radius: 20px; padding: 20px; margin-bottom: 25px;
+            text-align: right; border: 1px solid rgba(255,255,255,0.05);
+            scrollbar-width: thin; scrollbar-color: var(--gold) transparent;
+        }
+
+        .input-group { position: relative; display: flex; gap: 10px; }
+
+        input {
+            flex: 1; padding: 16px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.4); color: white; font-size: 1rem; outline: none; transition: 0.3s;
+        }
+        input:focus { border-color: var(--gold); box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
+
+        button {
+            padding: 0 25px; border-radius: 18px; border: none;
+            background: var(--gold); color: var(--deep-green); font-weight: 700;
+            cursor: pointer; transition: 0.3s; font-size: 1.1rem;
+        }
+
+        button:hover:not(:disabled) { transform: scale(1.05); filter: brightness(1.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .status-text { font-size: 0.8rem; color: var(--gold); margin-top: 10px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+
+    <div class="chat-card">
+        <h1>🕌 مجلس العلم الذكي</h1>
+        <div id="response-box">مرحباً بك يا بني.. تفضل بسؤالك الشرعي، وسأجيبك بالدليل من الكتاب والسنة.</div>
+        
+        <div class="input-group">
+            <input type="text" id="question" placeholder="اكتب سؤالك هنا..." onkeypress="if(event.key==='Enter') ask()">
+            <button id="askBtn" onclick="ask()">اسأل</button>
+        </div>
+        <div id="status" class="status-text">متصل الآن بنظام الذكاء الشرعي</div>
+    </div>
+
+    <script>
+        async function ask() {
+            const qInput = document.getElementById('question');
+            const resDiv = document.getElementById('response-box');
+            const btn = document.getElementById('askBtn');
+            
+            if(!qInput.value.trim()) return;
+
+            const userQ = qInput.value;
+            qInput.value = "";
+            resDiv.innerHTML += `<p style="color: var(--gold)">● أنت: ${userQ}</p>`;
+            resDiv.innerHTML += `<p id="loading">جاري مراجعة كتب العلم...</p>`;
+            resDiv.scrollTop = resDiv.scrollHeight;
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ question: userQ })
+                });
+
+                const data = await res.json();
+                document.getElementById('loading').remove();
+                resDiv.innerHTML += `<p>● الشيخ: ${data.answer}</p><hr style="opacity:0.1">`;
+            } catch (e) {
+                document.getElementById('loading').innerText = "عذراً يا بني، حدث تداخل في الأفكار.";
+            } finally {
+                btn.disabled = false;
+                resDiv.scrollTop = resDiv.scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>
